@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>생물의 5계 분류 탐구 (갤럭시탭 최적화)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/canvas-confetti/1.5.1/confetti.browser.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Pretendard', sans-serif; touch-action: manipulation; overscroll-behavior: none; }
+        .drop-zone { min-height: 90px; transition: all 0.2s ease; }
+        .drop-zone.drag-over, .drop-zone.touch-target-active { background-color: rgba(59, 130, 246, 0.15); border-color: #3b82f6; transform: scale(1.01); }
+        .organism-card { cursor: pointer; transition: all 0.15s ease; user-select: none; -webkit-tap-highlight-color: transparent; }
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 9999px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-slate-100 via-teal-50 to-sky-100 h-screen overflow-hidden text-slate-800 flex flex-col select-none">
+
+    <header class="bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-4 py-2 shadow-sm z-30 flex-shrink-0">
+        <div class="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-2">
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 bg-gradient-to-br from-emerald-500 to-teal-600 text-white rounded-2xl flex items-center justify-center text-lg shadow-md shadow-emerald-500/20">
+                    🧬
+                </div>
+                <div>
+                    <h1 class="text-base font-extrabold bg-gradient-to-r from-emerald-800 to-teal-800 bg-clip-text text-transparent flex items-center gap-2">
+                        생물의 5계 분류 탐구 
+                        <span class="text-[10px] bg-indigo-100 text-indigo-700 px-2.5 py-0.5 rounded-full font-semibold">갤럭시탭 16:10 맞춤형 레이아웃</span>
+                    </h1>
+                    <p class="text-[11px] text-slate-500">왼쪽 카드를 터치/드래그하여 오른쪽 5계 영역에 배치하세요 (화면 이동 없음)</p>
+                </div>
+            </div>
+
+            <!-- Action Controls -->
+            <div class="flex items-center gap-2 flex-wrap justify-center">
+                <div id="selectionBanner" class="hidden bg-indigo-600 text-white text-xs px-3 py-1.5 rounded-xl font-bold animate-pulse shadow-sm">
+                    👉 배치할 5계 영역을 터치하세요!
+                </div>
+                <button onclick="toggleSound()" id="soundBtn" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition flex items-center gap-1 shadow-sm active:scale-95">
+                    🔊 효과음: 켜짐
+                </button>
+                <button onclick="openGuide()" class="px-3 py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-700 rounded-xl text-xs font-semibold transition flex items-center gap-1 border border-sky-200 shadow-sm active:scale-95">
+                    💡 분류 가이드
+                </button>
+                <button onclick="resetActivity()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition flex items-center gap-1 active:scale-95">
+                    🔄 처음으로
+                </button>
+                <button onclick="checkAnswers()" class="px-4 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-600/30 transition transform active:scale-95">
+                    ✨ 정답 확인하기
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 max-w-7xl w-full mx-auto p-3 grid grid-cols-1 md:grid-cols-12 gap-3 h-[calc(100vh-56px)] overflow-hidden">
+        
+        <!-- Left Tray: Organism Cards (Fixed stable container with internal scroll retention) -->
+        <section class="md:col-span-4 bg-white/95 backdrop-blur-md rounded-3xl p-3 border border-slate-200/80 shadow-xl flex flex-col h-full overflow-hidden">
+            <div class="flex justify-between items-center mb-1.5 flex-shrink-0">
+                <h2 class="font-bold text-slate-800 flex items-center gap-2 text-xs">
+                    <span class="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
+                    분류할 생물 카드
+                </h2>
+                <span id="remainingCount" class="text-xs bg-amber-100 text-amber-800 font-bold px-2.5 py-0.5 rounded-full">14개 남음</span>
+            </div>
+            <p class="text-[11px] text-slate-500 mb-2 bg-slate-50 p-2 rounded-xl border border-slate-100 flex-shrink-0 leading-tight">
+                💡 <b>사용법:</b> 카드를 <b>터치</b>하여 선택한 뒤 오른쪽 5계 상자를 터치하세요!
+            </p>
+
+            <div id="unassignedContainer" ondragover="allowDrop(event)" ondragleave="removeDropStyle(event)" ondrop="dropToUnassigned(event)" 
+                 class="flex-1 overflow-y-auto space-y-2 p-2 bg-slate-50/80 rounded-2xl border-2 border-dashed border-slate-200">
+                <!-- Organism cards populated via JS -->
+            </div>
+        </section>
+
+        <!-- Right Drop Zones: 5 Kingdoms Grid tailored for Galaxy Tab proportions -->
+        <section class="md:col-span-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 h-full overflow-y-auto pr-1 pb-4">
+            
+            <!-- 1. 원핵생물계 -->
+            <div onclick="handleZoneTap('prokaryote')" ondragover="allowDrop(event)" ondragleave="removeDropStyle(event)" ondrop="dropToZone(event, 'prokaryote')" id="zone-box-prokaryote"
+                 class="bg-white/95 backdrop-blur-md rounded-3xl p-2.5 border border-indigo-100 shadow-lg flex flex-col transition hover:border-indigo-300">
+                <div class="flex items-center justify-between pb-1.5 border-b border-slate-100 mb-1.5 flex-shrink-0">
+                    <div class="flex items-center gap-2">
+                        <span class="text-lg bg-indigo-50 p-1 rounded-xl">🦠</span>
+                        <div>
+                            <h3 class="font-bold text-xs text-indigo-900">원핵생물계</h3>
+                            <span class="text-[10px] text-slate-500">핵막 없음 (단세포)</span>
+                        </div>
+                    </div>
+                    <button onclick="event.stopPropagation(); showKingdomInfo('prokaryote')" class="text-slate-400 hover:text-indigo-600 text-[10px] bg-slate-100 hover:bg-indigo-50 px-2 py-0.5 rounded-lg transition font-medium">설명</button>
+                </div>
+                <div id="zone-prokaryote" class="drop-zone flex-1 bg-indigo-50/40 rounded-2xl p-1.5 border-2 border-dashed border-indigo-200/70 space-y-1.5 overflow-y-auto max-h-[160px]">
+                </div>
+            </div>
+
+            <!-- 2. 원생생물계 -->
+            <div onclick="handleZoneTap('protist')" ondragover="allowDrop(event)" ondragleave="removeDropStyle(event)" ondrop="dropToZone(event, 'protist')" id="zone-box-protist"
+                 class="bg-white/95 backdrop-blur-md rounded-3xl p-2.5 border border-cyan-100 shadow-lg flex flex-col transition hover:border-cyan-300">
+                <div class="flex items-center justify-between pb-1.5 border-b border-slate-100 mb-1.5 flex-shrink-0">
+                    <div class="flex items-center gap-2">
+                        <span class="text-lg bg-cyan-50 p-1 rounded-xl">💧</span>
+                        <div>
+                            <h3 class="font-bold text-xs text-cyan-900">원생생물계</h3>
+                            <span class="text-[10px] text-slate-500">핵 있음 (대부분 단세포)</span>
+                        </div>
+                    </div>
+                    <button onclick="event.stopPropagation(); showKingdomInfo('protist')" class="text-slate-400 hover:text-cyan-600 text-[10px] bg-slate-100 hover:bg-cyan-50 px-2 py-0.5 rounded-lg transition font-medium">설명</button>
+                </div>
+                <div id="zone-protist" class="drop-zone flex-1 bg-cyan-50/40 rounded-2xl p-1.5 border-2 border-dashed border-cyan-200/70 space-y-1.5 overflow-y-auto max-h-[160px]">
+                </div>
+            </div>
+
+            <!-- 3. 균계 -->
+            <div onclick="handleZoneTap('fungi')" ondragover="allowDrop(event)" ondragleave="removeDropStyle(event)" ondrop="dropToZone(event, 'fungi')" id="zone-box-fungi"
+                 class="bg-white/95 backdrop-blur-md rounded-3xl p-2.5 border border-amber-100 shadow-lg flex flex-col transition hover:border-amber-300">
+                <div class="flex items-center justify-between pb-1.5 border-b border-slate-100 mb-1.5 flex-shrink-0">
+                    <div class="flex items-center gap-2">
+                        <span class="text-lg bg-amber-50 p-1 rounded-xl">🍄</span>
+                        <div>
+                            <h3 class="font-bold text-xs text-amber-900">균계</h3>
+                            <span class="text-[10px] text-slate-500">포자 번식·광합성 안 함</span>
+                        </div>
+                    </div>
+                    <button onclick="event.stopPropagation(); showKingdomInfo('fungi')" class="text-slate-400 hover:text-amber-600 text-[10px] bg-slate-100 hover:bg-amber-50 px-2 py-0.5 rounded-lg transition font-medium">설명</button>
+                </div>
+                <div id="zone-fungi" class="drop-zone flex-1 bg-amber-50/40 rounded-2xl p-1.5 border-2 border-dashed border-amber-200/70 space-y-1.5 overflow-y-auto max-h-[160px]">
+                </div>
+            </div>
+
+            <!-- 4. 식물계 -->
+            <div onclick="handleZoneTap('plant')" ondragover="allowDrop(event)" ondragleave="removeDropStyle(event)" ondrop="dropToZone(event, 'plant')" id="zone-box-plant"
+                 class="bg-white/95 backdrop-blur-md rounded-3xl p-2.5 border border-emerald-100 shadow-lg flex flex-col transition hover:border-emerald-300">
+                <div class="flex items-center justify-between pb-1.5 border-b border-slate-100 mb-1.5 flex-shrink-0">
+                    <div class="flex items-center gap-2">
+                        <span class="text-lg bg-emerald-50 p-1 rounded-xl">🌱</span>
+                        <div>
+                            <h3 class="font-bold text-xs text-emerald-900">식물계</h3>
+                            <span class="text-[10px] text-slate-500">다세포·광합성 함</span>
+                        </div>
+                    </div>
+                    <button onclick="event.stopPropagation(); showKingdomInfo('plant')" class="text-slate-400 hover:text-emerald-600 text-[10px] bg-slate-100 hover:bg-emerald-50 px-2 py-0.5 rounded-lg transition font-medium">설명</button>
+                </div>
+                <div id="zone-plant" class="drop-zone flex-1 bg-emerald-50/40 rounded-2xl p-1.5 border-2 border-dashed border-emerald-200/70 space-y-1.5 overflow-y-auto max-h-[160px]">
+                </div>
+            </div>
+
+            <!-- 5. 동물계 (Span 2 cols on tablet landscape) -->
+            <div onclick="handleZoneTap('animal')" ondragover="allowDrop(event)" ondragleave="removeDropStyle(event)" ondrop="dropToZone(event, 'animal')" id="zone-box-animal"
+                 class="bg-white/95 backdrop-blur-md rounded-3xl p-2.5 border border-rose-100 shadow-lg flex flex-col sm:col-span-2 lg:col-span-2 transition hover:border-rose-300">
+                <div class="flex items-center justify-between pb-1.5 border-b border-slate-100 mb-1.5 flex-shrink-0">
+                    <div class="flex items-center gap-2">
+                        <span class="text-lg bg-rose-50 p-1 rounded-xl">🐾</span>
+                        <div>
+                            <h3 class="font-bold text-xs text-rose-900">동물계</h3>
+                            <span class="text-[10px] text-slate-500">다세포·운동성 있음·세포벽 없음</span>
+                        </div>
+                    </div>
+                    <button onclick="event.stopPropagation(); showKingdomInfo('animal')" class="text-slate-400 hover:text-rose-600 text-[10px] bg-slate-100 hover:bg-rose-50 px-2 py-0.5 rounded-lg transition font-medium">설명</button>
+                </div>
+                <div id="zone-animal" class="drop-zone flex-1 bg-rose-50/40 rounded-2xl p-1.5 border-2 border-dashed border-rose-200/70 space-y-1.5 overflow-y-auto max-h-[160px]">
+                </div>
+            </div>
+
+        </section>
+
+    </main>
+
+    <div id="modalOverlay" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl transform transition-all text-center">
+            <div id="modalIcon" class="text-5xl mb-3">🎉</div>
+            <h3 id="modalTitle" class="text-xl font-bold text-slate-800 mb-2">결과 확인</h3>
+            <p id="modalDesc" class="text-slate-600 text-sm mb-6 leading-relaxed"></p>
+            <div class="flex justify-center gap-3">
+                <button onclick="closeModal()" class="px-6 py-3 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold rounded-xl text-sm transition active:scale-95">닫기</button>
+                <button id="modalExtraBtn" onclick="" class="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl text-sm transition hidden active:scale-95">다시하기</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Guide Modal -->
+    <div id="guideOverlay" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl max-h-[85vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">💡 생물 분류 기준 가이드</h3>
+                <button onclick="closeGuide()" class="text-slate-400 hover:text-slate-600 font-bold text-xl p-2">✕</button>
+            </div>
+            <div class="space-y-3 text-xs text-slate-600">
+                <div class="bg-indigo-50/50 p-3 rounded-2xl border border-indigo-100">
+                    <h4 class="font-bold text-indigo-900 mb-1">1단계: 핵의 유무</h4>
+                    <p>핵막이 없으면 <span class="font-semibold text-indigo-700">원핵생물계</span> (예: 대장균, 젖산균)</p>
+                </div>
+                <div class="bg-cyan-50/50 p-3 rounded-2xl border border-cyan-100">
+                    <h4 class="font-bold text-cyan-900 mb-1">2단계: 다세포 여부 및 세포 구조</h4>
+                    <p>핵이 있으면서 주로 단세포이거나 미역·김 같은 해조류는 <span class="font-semibold text-cyan-700">원생생물계</span></p>
+                </div>
+                <div class="bg-amber-50/50 p-3 rounded-2xl border border-amber-100">
+                    <h4 class="font-bold text-amber-900 mb-1">3단계: 영양 방식 및 광합성</h4>
+                    <p>포자로 번식하고 광합성을 하지 않으면 <span class="font-semibold text-amber-700">균계</span> (표고버섯, 효모)</p>
+                </div>
+                <div class="bg-emerald-50/50 p-3 rounded-2xl border border-emerald-100">
+                    <h4 class="font-bold text-emerald-900 mb-1">4단계: 광합성 여부 (식물계 vs 동물계)</h4>
+                    <p>다세포이며 광합성을 하면 <span class="font-semibold text-emerald-700">식물계</span> (소나무, 장미, <b>파리지옥</b>*)</p>
+                    <p class="mt-1">다세포이며 운동성이 있고 세포벽이 없으면 <span class="font-semibold text-rose-700">동물계</span> (사람, 호랑이, <b>산호</b>*)</p>
+                </div>
+                <div class="bg-amber-100/70 p-3 rounded-2xl border border-amber-300 text-amber-900 text-[11px] leading-relaxed">
+                    ⭐ <b>주의할 생물 포인트:</b> 미역·김은 식물처럼 보여도 <b>원생생물계</b>이며, 파리지옥은 곤충을 잡아먹지만 <b>광합성</b>을 하므로 식물계, 산호는 움직이지 못하지만 <b>광합성을 하지 않고 흡수영양</b>을 하므로 동물계입니다!
+                </div>
+            </div>
+            <div class="mt-5 text-center">
+                <button onclick="closeGuide()" class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl text-xs transition active:scale-95 shadow-md">확인 완료</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const organismsData = [
+            { id: 'ecoli', name: '대장균', kingdom: 'prokaryote', emoji: '🦠', hint: '핵이 없고 단세포로 이루어진 세균입니다.' },
+            { id: 'lactic', name: '젖산균', kingdom: 'prokaryote', emoji: '🧪', hint: '요구르트를 만드는 대표적인 원핵생물입니다.' },
+            { id: 'amoeba', name: '아메바', kingdom: 'protist', emoji: '💧', hint: '위족으로 이동하는 단세포 진핵생물입니다.' },
+            { id: 'paramecium', name: '짚신벌레', kingdom: 'protist', emoji: '🧬', hint: '섬모로 헤엄치는 단세포 원생생물입니다.' },
+            { id: 'kelp', name: '미역', kingdom: 'protist', emoji: '🌿', hint: '식물처럼 보이지만 다세포 원생생물(조류)입니다.' },
+            { id: 'laver', name: '김', kingdom: 'protist', emoji: '🍃', hint: '바다에서 자라는 홍조류로 원생생물계입니다.' },
+            { id: 'mushroom', name: '표고버섯', kingdom: 'fungi', emoji: '🍄', hint: '포자로 번식하고 광합성을 하지 않아요.' },
+            { id: 'yeast', name: '효모', kingdom: 'fungi', emoji: '🍞', hint: '빵이나 술을 만들 때 쓰는 단세포 균류입니다.' },
+            { id: 'pine', name: '소나무', kingdom: 'plant', emoji: '🌲', hint: '씨가 겉으로 드러나는 광합성 식물입니다.' },
+            { id: 'venus', name: '파리지옥', kingdom: 'plant', emoji: '🪴', hint: '곤충을 잡지만 스스로 광합성을 하므로 식물계!' },
+            { id: 'rose', name: '장미', kingdom: 'plant', emoji: '🌹', hint: '꽃이 피고 광합성을 하는 전형적인 식물입니다.' },
+            { id: 'human', name: '사람', kingdom: 'animal', emoji: '🧑', hint: '운동성이 있고 유기물을 섭취하는 다세포 동물입니다.' },
+            { id: 'tiger', name: '호랑이', kingdom: 'animal', emoji: '🐅', hint: '뛰어난 운동성과 척추를 가진 포유류입니다.' },
+            { id: 'coral', name: '산호', kingdom: 'animal', emoji: '🪸', hint: '식물처럼 보여도 광합성을 하지 않는 동물계입니다!' }
+        ];
+
+        let gameState = {
+            cards: [],
+            soundEnabled: true,
+            selectedCardId: null
+        };
+
+        // Web Audio API Sound Generator
+        let audioCtx = null;
+        function playSound(type) {
+            if (!gameState.soundEnabled) return;
+            try {
+                if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                const now = audioCtx.currentTime;
+                if (type === 'pop') {
+                    osc.frequency.setValueAtTime(320, now);
+                    osc.frequency.exponentialRampToValueAtTime(650, now + 0.1);
+                    gain.gain.setValueAtTime(0.12, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                    osc.start(now);
+                    osc.stop(now + 0.1);
+                } else if (type === 'select') {
+                    osc.frequency.setValueAtTime(440, now);
+                    osc.frequency.exponentialRampToValueAtTime(880, now + 0.08);
+                    gain.gain.setValueAtTime(0.1, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+                    osc.start(now);
+                    osc.stop(now + 0.08);
+                } else if (type === 'success') {
+                    osc.frequency.setValueAtTime(523.25, now);
+                    osc.frequency.setValueAtTime(659.25, now + 0.1);
+                    osc.frequency.setValueAtTime(783.99, now + 0.2);
+                    gain.gain.setValueAtTime(0.15, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+                    osc.start(now);
+                    osc.stop(now + 0.4);
+                } else if (type === 'error') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(180, now);
+                    osc.frequency.setValueAtTime(120, now + 0.15);
+                    gain.gain.setValueAtTime(0.15, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                    osc.start(now);
+                    osc.stop(now + 0.3);
+                }
+            } catch (e) {
+                console.error("Audio error:", e);
+            }
+        }
+
+        function toggleSound() {
+            gameState.soundEnabled = !gameState.soundEnabled;
+            const btn = document.getElementById('soundBtn');
+            btn.innerHTML = gameState.soundEnabled ? '🔊 효과음: 켜짐' : '🔇 효과음: 꺼짐';
+        }
+
+        function initGame() {
+            gameState.selectedCardId = null;
+            updateSelectionBanner();
+            const shuffled = [...organismsData]
+                .map(item => ({ ...item, currentZone: 'unassigned', status: 'normal' }))
+                .sort(() => Math.random() - 0.5);
+            
+            gameState.cards = shuffled;
+            renderBoard();
+        }
+
+        function renderBoard() {
+            // Save scroll positions to prevent jumping when interacting on tablets
+            const unassignedScroll = document.getElementById('unassignedContainer').scrollTop;
+            const zoneScrolls = {};
+            ['prokaryote', 'protist', 'fungi', 'plant', 'animal'].forEach(z => {
+                const el = document.getElementById(`zone-${z}`);
+                if (el) zoneScrolls[z] = el.scrollTop;
+            });
+
+            const unassignedContainer = document.getElementById('unassignedContainer');
+            unassignedContainer.innerHTML = '';
+
+            const zones = {
+                prokaryote: document.getElementById('zone-prokaryote'),
+                protist: document.getElementById('zone-protist'),
+                fungi: document.getElementById('zone-fungi'),
+                plant: document.getElementById('zone-plant'),
+                animal: document.getElementById('zone-animal')
+            };
+
+            Object.values(zones).forEach(zone => zone.innerHTML = '');
+
+            let unassignedCount = 0;
+
+            gameState.cards.forEach(card => {
+                const cardEl = createCardElement(card);
+                if (card.currentZone === 'unassigned') {
+                    unassignedContainer.appendChild(cardEl);
+                    unassignedCount++;
+                } else {
+                    if (zones[card.currentZone]) {
+                        zones[card.currentZone].appendChild(cardEl);
+                    }
+                }
+            });
+
+            document.getElementById('remainingCount').innerText = `${unassignedCount}개 남음`;
+
+            // Restore scroll positions smoothly
+            document.getElementById('unassignedContainer').scrollTop = unassignedScroll;
+            ['prokaryote', 'protist', 'fungi', 'plant', 'animal'].forEach(z => {
+                const el = document.getElementById(`zone-${z}`);
+                if (el) el.scrollTop = zoneScrolls[z];
+            });
+        }
+
+        function createCardElement(card) {
+            const div = document.createElement('div');
+            const isSelected = gameState.selectedCardId === card.id;
+
+            div.className = `organism-card bg-white p-2 rounded-2xl border shadow-sm flex items-center justify-between gap-2 transition transform active:scale-95 ${
+                isSelected ? 'border-indigo-600 bg-indigo-50/95 ring-4 ring-indigo-500/30 shadow-md scale-[1.02]' :
+                card.status === 'correct' ? 'border-emerald-500 bg-emerald-50/60 ring-2 ring-emerald-500/20' :
+                card.status === 'incorrect' ? 'border-rose-500 bg-rose-50/60 ring-2 ring-rose-500/25' :
+                'border-slate-200 hover:border-indigo-300'
+            }`;
+            div.draggable = true;
+            div.id = `card-${card.id}`;
+
+            // Tablet tap-to-select interaction
+            div.onclick = (e) => {
+                e.stopPropagation();
+                selectCard(card.id);
+            };
+
+            // Drag events
+            div.ondragstart = (e) => {
+                e.dataTransfer.setData('text/plain', card.id);
+                gameState.selectedCardId = card.id;
+                updateSelectionBanner();
+            };
+
+            let statusBadge = '';
+            if (card.status === 'correct') statusBadge = '<span class="text-[10px] text-emerald-600 font-bold bg-emerald-100 px-2 py-0.5 rounded-full">✔️ 정답</span>';
+            if (card.status === 'incorrect') statusBadge = '<span class="text-[10px] text-rose-600 font-bold bg-rose-100 px-2 py-0.5 rounded-full">❌ 오답</span>';
+
+            div.innerHTML = `
+                <div class="flex items-center gap-2 overflow-hidden pointer-events-none">
+                    <span class="text-lg flex-shrink-0 bg-slate-100 p-1.5 rounded-xl">${card.emoji}</span>
+                    <div class="truncate">
+                        <h4 class="font-bold text-xs text-slate-800 truncate">${card.name}</h4>
+                        <p class="text-[10px] text-slate-400 truncate">${card.hint}</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-1.5 flex-shrink-0">
+                    ${statusBadge}
+                    <button onclick="event.stopPropagation(); openCardHint('${card.id}')" class="w-6 h-6 bg-slate-100 hover:bg-indigo-100 text-slate-600 hover:text-indigo-700 rounded-xl text-xs flex items-center justify-center transition shadow-sm" title="힌트 보기">💡</button>
+                    <select onchange="event.stopPropagation(); moveCardMobile('${card.id}', this.value)" class="text-[11px] bg-slate-100 border border-slate-200 rounded-xl p-1 text-slate-700 font-medium">
+                        <option value="unassigned">이동 ▾</option>
+                        <option value="prokaryote">원핵생물</option>
+                        <option value="protist">원생생물</option>
+                        <option value="fungi">균계</option>
+                        <option value="plant">식물계</option>
+                        <option value="animal">동물계</option>
+                    </select>
+                </div>
+            `;
+            return div;
+        }
+
+        function selectCard(cardId) {
+            if (gameState.selectedCardId === cardId) {
+                gameState.selectedCardId = null; 
+            } else {
+                gameState.selectedCardId = cardId;
+                playSound('select');
+            }
+            updateSelectionBanner();
+            renderBoard();
+        }
+
+        function updateSelectionBanner() {
+            const banner = document.getElementById('selectionBanner');
+            if (gameState.selectedCardId) {
+                banner.classList.remove('hidden');
+            } else {
+                banner.classList.add('hidden');
+            }
+        }
+
+        function handleZoneTap(zoneName) {
+            if (gameState.selectedCardId) {
+                moveCard(gameState.selectedCardId, zoneName);
+                gameState.selectedCardId = null;
+                updateSelectionBanner();
+            }
+        }
+
+        function allowDrop(e) {
+            e.preventDefault();
+            e.currentTarget.classList.add('drag-over');
+        }
+
+        function removeDropStyle(e) {
+            e.currentTarget.classList.remove('drag-over');
+        }
+
+        function dropToZone(e, zoneName) {
+            e.preventDefault();
+            e.currentTarget.classList.remove('drag-over');
+            const cardId = e.dataTransfer.getData('text/plain');
+            if (cardId) {
+                moveCard(cardId, zoneName);
+                gameState.selectedCardId = null;
+                updateSelectionBanner();
+            }
+        }
+
+        function dropToUnassigned(e) {
+            e.preventDefault();
+            e.currentTarget.classList.remove('drag-over');
+            const cardId = e.dataTransfer.getData('text/plain');
+            if (cardId) {
+                moveCard(cardId, 'unassigned');
+                gameState.selectedCardId = null;
+                updateSelectionBanner();
+            }
+        }
+
+        function moveCard(cardId, zoneName) {
+            const card = gameState.cards.find(c => c.id === cardId);
+            if (card) {
+                card.currentZone = zoneName;
+                card.status = 'normal';
+                playSound('pop');
+                renderBoard();
+            }
+        }
+
+        function moveCardMobile(cardId, zoneName) {
+            moveCard(cardId, zoneName);
+        }
+
+        function checkAnswers() {
+            let correctCount = 0;
+            let totalPlaced = 0;
+
+            gameState.cards.forEach(card => {
+                if (card.currentZone !== 'unassigned') {
+                    totalPlaced++;
+                    if (card.currentZone === card.kingdom) {
+                        card.status = 'correct';
+                        correctCount++;
+                    } else {
+                        card.status = 'incorrect';
+                    }
+                } else {
+                    card.status = 'normal';
+                }
+            });
+
+            renderBoard();
+
+            if (totalPlaced === 0) {
+                showModal('⚠️ 알림', '아직 분류 영역에 배치된 생물이 없습니다. 카드를 분류해 보세요!', '⏳', false);
+                playSound('error');
+                return;
+            }
+
+            if (correctCount === organismsData.length) {
+                playSound('success');
+                confetti({
+                    particleCount: 150,
+                    spread: 90,
+                    origin: { y: 0.6 }
+                });
+                showModal('🏆 완벽합니다!', `모든 생물(${organismsData.length}개)을 정확하게 알맞은 5계로 분류하셨습니다! 과학 학습 왕이시네요!`, '🎉', true);
+            } else {
+                playSound('error');
+                showModal('🔍 정답 확인 결과', `배치된 ${totalPlaced}개 중 <b>${correctCount}개</b>가 맞았습니다.<br>빨간색으로 표시된 오답 카드를 확인하고 다시 시도해보세요!`, '💡', false);
+            }
+        }
+
+        function showModal(title, desc, icon, isSuccess) {
+            document.getElementById('modalTitle').innerText = title;
+            document.getElementById('modalDesc').innerHTML = desc;
+            document.getElementById('modalIcon').innerText = icon;
+            const extraBtn = document.getElementById('modalExtraBtn');
+            if (isSuccess) {
+                extraBtn.classList.remove('hidden');
+                extraBtn.innerText = '다시 섞기';
+                extraBtn.onclick = () => { closeModal(); initGame(); };
+            } else {
+                extraBtn.classList.add('hidden');
+            }
+            document.getElementById('modalOverlay').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('modalOverlay').classList.add('hidden');
+        }
+
+        function openGuide() {
+            document.getElementById('guideOverlay').classList.remove('hidden');
+        }
+
+        function closeGuide() {
+            document.getElementById('guideOverlay').classList.add('hidden');
+        }
+
+        function openCardHint(cardId) {
+            const card = organismsData.find(c => c.id === cardId);
+            if (card) {
+                showModal(`💡 ${card.name} 힌트`, card.hint, card.emoji, false);
+            }
+        }
+
+        function showKingdomInfo(kingdomKey) {
+            const infoMap = {
+                prokaryote: { title: '원핵생물계', desc: '핵막이 없어 유전 물질이 세포질에 퍼져 있는 단세포 생물입니다. (예: 대장균, 젖산균)' },
+                protist: { title: '원생생물계', desc: '핵막은 있으나 대부분 단세포이며, 미역·김 같은 해조류가 포함됩니다.' },
+                fungi: { title: '균계', desc: '포자로 번식하며 광합성을 하지 못하고 다른 유기물로부터 영양분을 흡수합니다. (표고버섯, 효모)' },
+                plant: { title: '식물계', desc: '다세포 생물이며 세포벽이 있고, 스스로 광합성을 통해 양분을 만듭니다. (소나무, 장미, 파리지옥)' },
+                animal: { title: '동물계', desc: '다세포 생물이며 세포벽이 없고, 운동성이 있어 다른 유기물을 섭취하여 영양분을 얻습니다. (사람, 호랑이, 산호)' }
+            };
+            const info = infoMap[kingdomKey];
+            if (info) {
+                showModal(info.title, info.desc, '📖', false);
+            }
+        }
+
+        function resetActivity() {
+            initGame();
+        }
+
+        window.onload = () => {
+            initGame();
+        };
+    </script>
+</body>
+</html>
