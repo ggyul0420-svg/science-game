@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>생물의 5계 분류 탐구 </title>
+    <title>생물의 5계 분류 탐구</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/canvas-confetti/1.5.1/confetti.browser.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -31,7 +31,7 @@
                         생물의 5계 분류 탐구 
                         <span class="text-[10px] bg-indigo-100 text-indigo-700 px-2.5 py-0.5 rounded-full font-semibold"></span>
                     </h1>
-                    <p class="text-[11px] text-slate-500">왼쪽 카드를 터치/드래그하여 오른쪽 5계 영역에 배치하세요 </p>
+                    <p class="text-[11px] text-slate-500">왼쪽 카드를 터치/드래그하여 오른쪽 5계 영역에 배치하세요</p>
                 </div>
             </div>
 
@@ -58,7 +58,7 @@
 
     <main class="flex-1 max-w-7xl w-full mx-auto p-3 grid grid-cols-1 md:grid-cols-12 gap-3 h-[calc(100vh-56px)] overflow-hidden">
         
-        <!-- Left Tray: Organism Cards (Fixed stable container with internal scroll retention) -->
+        <!-- Left Tray: Organism Cards -->
         <section class="md:col-span-4 bg-white/95 backdrop-blur-md rounded-3xl p-3 border border-slate-200/80 shadow-xl flex flex-col h-full overflow-hidden">
             <div class="flex justify-between items-center mb-1.5 flex-shrink-0">
                 <h2 class="font-bold text-slate-800 flex items-center gap-2 text-xs">
@@ -77,7 +77,7 @@
             </div>
         </section>
 
-        <!-- Right Drop Zones: 5 Kingdoms Grid tailored for Galaxy Tab proportions -->
+        <!-- Right Drop Zones: 5 Kingdoms Grid -->
         <section class="md:col-span-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 h-full overflow-y-auto pr-1 pb-4">
             
             <!-- 1. 원핵생물계 -->
@@ -148,7 +148,7 @@
                 </div>
             </div>
 
-            <!-- 5. 동물계 (Span 2 cols on tablet landscape) -->
+            <!-- 5. 동물계 -->
             <div onclick="handleZoneTap('animal')" ondragover="allowDrop(event)" ondragleave="removeDropStyle(event)" ondrop="dropToZone(event, 'animal')" id="zone-box-animal"
                  class="bg-white/95 backdrop-blur-md rounded-3xl p-2.5 border border-rose-100 shadow-lg flex flex-col sm:col-span-2 lg:col-span-2 transition hover:border-rose-300">
                 <div class="flex items-center justify-between pb-1.5 border-b border-slate-100 mb-1.5 flex-shrink-0">
@@ -307,8 +307,11 @@
             renderBoard();
         }
 
+        function resetActivity() {
+            initGame();
+        }
+
         function renderBoard() {
-            // Save scroll positions to prevent jumping when interacting on tablets
             const unassignedScroll = document.getElementById('unassignedContainer').scrollTop;
             const zoneScrolls = {};
             ['prokaryote', 'protist', 'fungi', 'plant', 'animal'].forEach(z => {
@@ -345,7 +348,6 @@
 
             document.getElementById('remainingCount').innerText = `${unassignedCount}개 남음`;
 
-            // Restore scroll positions smoothly
             document.getElementById('unassignedContainer').scrollTop = unassignedScroll;
             ['prokaryote', 'protist', 'fungi', 'plant', 'animal'].forEach(z => {
                 const el = document.getElementById(`zone-${z}`);
@@ -394,14 +396,6 @@
                 <div class="flex items-center gap-1.5 flex-shrink-0">
                     ${statusBadge}
                     <button onclick="event.stopPropagation(); openCardHint('${card.id}')" class="w-6 h-6 bg-slate-100 hover:bg-indigo-100 text-slate-600 hover:text-indigo-700 rounded-xl text-xs flex items-center justify-center transition shadow-sm" title="힌트 보기">💡</button>
-                    <select onchange="event.stopPropagation(); moveCardMobile('${card.id}', this.value)" class="text-[11px] bg-slate-100 border border-slate-200 rounded-xl p-1 text-slate-700 font-medium">
-                        <option value="unassigned">이동 ▾</option>
-                        <option value="prokaryote">원핵생물</option>
-                        <option value="protist">원생생물</option>
-                        <option value="fungi">균계</option>
-                        <option value="plant">식물계</option>
-                        <option value="animal">동물계</option>
-                    </select>
                 </div>
             `;
             return div;
@@ -474,10 +468,6 @@
                 playSound('pop');
                 renderBoard();
             }
-        }
-
-        function moveCardMobile(cardId, zoneName) {
-            moveCard(cardId, zoneName);
         }
 
         function checkAnswers() {
@@ -568,10 +558,7 @@
             }
         }
 
-        function resetActivity() {
-            initGame();
-        }
-
+        // Initialize game on load
         window.onload = () => {
             initGame();
         };
